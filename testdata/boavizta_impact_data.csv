@@ -1,0 +1,7 @@
+component,proxy_entry,embodied_gco2e,expected_lifetime_years,error_margin_pct,source_note
+microcontroller,"generic low-power SoC (closest proxy, no MCU-specific entry)",180.0,10,40,"no microcontroller entry in Boavizta open data; SoC used as upper-bound proxy"
+radio_transceiver,"RF front-end / connectivity IC proxy",95.0,10,45,"no CC2420-class entry; connectivity IC used as proxy"
+battery_small,"Li-ion cell per Wh, scaled to a 2000 mAh 3V cell",60.0,5,30,"scaled from per-Wh Li-ion figure; small-cell entry absent"
+serial_flash,"NOR/serial flash IC proxy",25.0,10,50,"no small serial-flash entry; generic memory IC used as proxy"
+pcb_enclosure,"bare PCB + enclosure proxy",40.0,10,35,"generic PCB proxy"
+gateway_sbc,"single-board computer / edge gateway",320.0,8,25,"edge gateway proxy for the border router"

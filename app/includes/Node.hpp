@@ -6,7 +6,7 @@
 /*   By: ldesboui <ldesboui@42angouleme.fr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/20 14:45:44 by ldesboui          #+#    #+#             */
-/*   Updated: 2026/09/20 16:30:22 by ldesboui         ###   ########.fr       */
+/*   Updated: 2026/09/20 18:21:55 by ldesboui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 #include <vector>
@@ -35,9 +35,18 @@ class Node
 		std::vector<t_data> data;
 		Matrix<float>		coords;
 		long long			R;
+		Node();
 
 	public:
-		Node();
-		size_t getId() const { return(id); };
-		std::vector<t_data>& getData() { return(this->data); };
+		Node(size_t id, Matrix<float> coords) : coords(coords)
+		{
+			this->id = id;
+		};
+		size_t					getId() const { return(id); };
+		std::vector<t_data>&	getData() { return(this->data); };
+
+		void					pushData(long long tstamp, long long dCpu, long long dLpm, long long dRx, long long dTx)
+		{
+			data.push_back((t_data){dCpu, dLpm, dRx, dTx});
+		}
 };
