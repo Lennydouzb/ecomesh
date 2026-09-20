@@ -1,0 +1,6 @@
+{
+ "seed": 1001,
+ "archetype": "sparse",
+ "quality_spread": 0.2,
+ "grid_profile": "swing"
+}
