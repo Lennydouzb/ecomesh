@@ -9,6 +9,7 @@
 /*   Updated: 2026/09/04 16:56:48 by ldesboui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+#pragma once
 #include <iostream>
 #include <vector>
 #include <initializer_list>
@@ -54,6 +55,18 @@ class Matrix
 						this->data.push_back(static_cast<T>(0));
 				}
 			}
+		}
+		/*
+		 * -----------OPERATORS-------------
+		 */
+		Matrix<T>& operator=(const Matrix<T>& other)
+		{
+			if (this == &other)
+				return *this;
+			this->rows = other.getRows();
+			this->cols = other.getCols();
+			this->data = other.getData();
+			return *this;
 		}
 		/*
 		 * you can use this as Matrix(4, 4, SCALE, {sX, sY, sZ}, -1, -1), to create a scaling matrix for 3d

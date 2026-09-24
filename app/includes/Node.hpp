@@ -9,6 +9,7 @@
 /*   Updated: 2026/09/20 18:21:55 by ldesboui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+#pragma once
 #include <vector>
 #include <iostream>
 #include "Matrix.hpp"
@@ -34,19 +35,30 @@ class Node
 		size_t				id;
 		std::vector<t_data> data;
 		Matrix<float>		coords;
-		long long			R;
+		double				initialembodiedCo2;
+		double				drate; //Depreciation rate mais ratio je fait une ref a peak gate
+		double				Mnode;
+		double				lastconso;
 		Node();
 
 	public:
-		Node(size_t id, Matrix<float> coords) : coords(coords)
+		Node(size_t id, Matrix<float> coords, double embodied, double drate, double Mnode) : coords(coords)
 		{
 			this->id = id;
+			this->initialembodiedCo2 = embodied;
+			this->drate = drate; //pas encore calculee car besoin de l'environement <- jsuis un menteur en fait
+			this->Mnode = Mnode;
+			this->lastconso = 0;
 		};
 		size_t					getId() const { return(id); };
 		std::vector<t_data>&	getData() { return(this->data); };
-
+		double					getInitialEmbodied() const { return(initialembodiedCo2); };
+		double					getDrate() const { return(drate); };
+		double					getMnode() const { return(Mnode); };
+		double					getlastconso() const { return(lastconso); };
+		void					setlastconso(double val) {this->lastconso = val;};
 		void					pushData(long long tstamp, long long dCpu, long long dLpm, long long dRx, long long dTx)
 		{
-			data.push_back((t_data){dCpu, dLpm, dRx, dTx});
+			data.push_back((t_data){tstamp, dCpu, dLpm, dRx, dTx});
 		}
 };
