@@ -21,12 +21,14 @@ Environment parseJson(std::ifstream& grid, std::ifstream& topo, std::map<std::st
 	nlohmann::json topoData = json::parse(topo);
 	std::vector<Node> Nodes;
 	double simtime = topoData["emulated_minutes"].get<double>() * 60.0;
-	Nodes.push_back(Node(topoData["gateway"]["id"], Matrix<float>(1, 2 , NO_TYPE, {topoData["gateway"]["x"], topoData["gateway"]["y"]}, -1, -1), costmap["gateway_sbc"].embodied, costmap["gateway_sbc"].Drate, costmap["gateway_sbc"].Drate * simtime));
+    unsigned int gw_id = topoData["gateway"]["id"].get<unsigned int>(); //+ 1;
+	Nodes.push_back(Node(gw_id, Matrix<float>(1, 2 , NO_TYPE, {topoData["gateway"]["x"], topoData["gateway"]["y"]}, -1, -1), costmap["gateway_sbc"].embodied, costmap["gateway_sbc"].Drate, costmap["gateway_sbc"].Drate * simtime));
 	double BasicNodeEmbodied = costmap["microcontroller"].embodied + costmap["radio_transceiver"].embodied + costmap["battery_small"].embodied +costmap["serial_flash"].embodied +costmap["pcb_enclosure"].embodied;
 	double BasicNodeDrate = costmap["microcontroller"].Drate + costmap["radio_transceiver"].Drate + costmap["battery_small"].Drate +costmap["serial_flash"].Drate +costmap["pcb_enclosure"].Drate;
 	for (auto it = topoData["sensors"].begin(); it != topoData["sensors"].end(); ++it)
 	{
-		Nodes.push_back(Node((*it)["id"], Matrix<float>(1, 2, NO_TYPE, {(*it)["x"], (*it)["y"]}, -1, -1), BasicNodeEmbodied, BasicNodeDrate, BasicNodeDrate * simtime));
+        unsigned int se_id = (*it)["id"].get<unsigned int>();// + 1;
+		Nodes.push_back(Node(se_id , Matrix<float>(1, 2, NO_TYPE, {(*it)["x"], (*it)["y"]}, -1, -1), BasicNodeEmbodied, BasicNodeDrate, BasicNodeDrate * simtime));
 	}
 	std::vector<t_elec> stats;
 	size_t i = 0;
@@ -98,43 +100,72 @@ std::map<std::string, t_compdata> loadCSV(const std::string &path)
     return components;
 }
 
-void    parseCoojaLogs(Environment& envir, std::ifstream& file)
+void parseCoojaLogs(Environment& envir, std::ifstream& file)
 {
-    (void) envir;
     if (!file.is_open())
     {
         std::cerr << "Error : cannot open file COOJA.testlog" << std::endl;
-        return ;
+        return;
     }
+
     std::string line;
     uint64_t total_R = 0;
-    if (!std::getline(file, line))
-        return ;
-    while(std::getline(file, line))
+    double operational_carbon_gco2 = 0.0;
+
+    while (std::getline(file, line))
     {
         if (line.find("[INFO: ecomesh-gw] RX") != std::string::npos)
+        {
             total_R++;
-        else if (line.find(" ] E ") != std::string::npos)
+        }
+
+        size_t e_pos = line.find("] E ");
+        if (e_pos != std::string::npos)
         {
             long long timestamp;
-            int node_id, seq;
-            uint64_t ticks_tx, ticks_rx, ticks_deep_lpm, ticks_cpu, ticks_lpm;
-            int parsed = std::sscanf(line.c_str(),
-                "%lld %d [INFO: %*s ] E %d %llu %llu %llu %llu %llu",
-                &timestamp,
-                &node_id,
-                &seq,
-                &ticks_tx,        // 1er nombre après E  -> TX
-                &ticks_rx,        // 2e nombre après E   -> RX
-                &ticks_deep_lpm,  // 3e nombre après E   -> Deep LPM
-                &ticks_cpu,       // 4e nombre après E   -> CPU
-                &ticks_lpm        // 5e nombre après E   -> LPM
-            );
+            unsigned int node_id;
 
-            if (parsed == 8) {
-                // Les variables contiennent maintenant la bonne catégorie de ticks !
+            int res1 = std::sscanf(line.c_str(), "%lld %u", &timestamp, &node_id);
+            
+            if (res1 == 2)
+            {
+                unsigned int seq;
+                unsigned long long last_clock_ms, ticks_cpu, ticks_lpm, ticks_tx, ticks_rx;
+                const char* energy_data_str = line.c_str() + e_pos + 4;
+                
+                int res2 = std::sscanf(energy_data_str, "%u %llu %llu %llu %llu %llu",
+                            &seq, &last_clock_ms, &ticks_cpu, &ticks_lpm, &ticks_tx, &ticks_rx);
+
+                if (res2 == 6)
+                {
+                    if (node_id == envir.getGateway().getId())
+                    {
+                        double mj = (static_cast<double>(ticks_cpu) / RTIMER_SECOND) * CPU_ACTIVE_MW
+                                + (static_cast<double>(ticks_lpm) / RTIMER_SECOND) * CPU_SLEEP_MW
+                                + (static_cast<double>(ticks_tx)  / RTIMER_SECOND) * RADIO_TX_MW
+                                + (static_cast<double>(ticks_rx)  / RTIMER_SECOND) * RADIO_LISTEN_MW;
+
+                        double wh = mj / 3600.0 / 1000.0;
+                        size_t current_day = static_cast<size_t>(timestamp / 86400000LL);
+                        double grid_intensity = envir.getelecconsfromday(current_day);
+                        operational_carbon_gco2 += wh * grid_intensity;
+                    }
+                    else
+                    {
+                        envir.pushData(node_id, timestamp, ticks_cpu, ticks_lpm, ticks_rx, ticks_tx);
+                    }
+                }
+                else
+                {
+                    std::cerr << "[DIAGNOSTIC] res2 failed (" << res2 << "/6)  : " << energy_data_str << std::endl;
+                }
+            }
+            else
+            {
+                std::cerr << "[DIAGNOSTIC] res1 failed(" << res1 << "/2)  : " << line << std::endl;
             }
         }
     }
-    std::cout << "nombre de RX (paquet livree)" << total_R << std::endl;
+    std::cout << "Nombre de RX (paquets livres R) : " << total_R << std::endl;
+    std::cout << "Carbone Operationnel Gateway (E * I) : " << operational_carbon_gco2 << " gCO2" << std::endl;
 }

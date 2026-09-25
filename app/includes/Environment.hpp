@@ -13,8 +13,16 @@
 #include <vector>
 #include "Node.hpp"
 #include <map>
+#include <iostream>
 
 #define SECONDS_PER_YEAR 31557600.0
+#define CPU_ACTIVE_MW      1.8f
+#define CPU_SLEEP_MW       0.0006f
+#define RADIO_TX_MW        52.0f
+#define RADIO_RX_MW        59.0f
+#define RADIO_LISTEN_MW    59.0f
+#define VOLTAGE            3.0f
+#define RTIMER_SECOND      1000000UL
 
 typedef struct s_elec
 {
@@ -42,7 +50,7 @@ class Environment
 {
 	private:
 		std::vector<Node>	nodes;
-		Node&				gateway;
+		Node				gateway;
 		std::vector<t_elec> elecs;
 		size_t				range;
 		size_t				interference_range;
@@ -51,7 +59,7 @@ class Environment
 		Environment();
 	public:
 		
-		Environment(Node& gateway, std::vector<t_elec> elecs, size_t range, size_t interference, t_stats stats, std::vector<Node> nodes, double simlen)
+		Environment(Node gateway, std::vector<t_elec> elecs, size_t range, size_t interference, t_stats stats, std::vector<Node> nodes, double simlen)
 			: gateway(gateway)
 		{
 			this->nodes = nodes;
@@ -61,22 +69,29 @@ class Environment
 			this->stats = stats;
 			this->simlen = simlen;
 		}
-		void	pushData(size_t id, long long tstamp, long long dCpu, long long dLpm, long long dRx, long long dTx)
+		void pushData(size_t id, long long tstamp, long long dCpu, long long dLpm, long long dRx, long long dTx)
 		{
-			bool found = 0;
 			std::vector<Node>::iterator it = this->nodes.begin();
-
-			while (!found && it != nodes.end())
+			while (it != nodes.end())
 			{
 				if (it->getId() == id)
-					found = 1;
-				else
-					++it;
+				{
+					it->pushData(tstamp, dCpu, dLpm, dRx, dTx);
+					return; 
+				}
+				++it;
 			}
-			it->pushData(tstamp, dCpu, dLpm, dRx, dTx);
+			std::cout << "pushdata dans rien ???" << std::endl;
 		}
 		std::vector<Node>&	getNodes() {return nodes;};
 		Node&				getGateway() {return gateway;};
+		int getelecconsfromday(size_t i) const
+		{
+			if (this->elecs.empty())
+				return 0;
+			size_t index = i % this->elecs.size(); 
+			return this->elecs[index].data;
+		}
 };
 std::map<std::string, t_compdata> loadCSV(const std::string &path);
 Environment parseJson(std::ifstream& grid, std::ifstream& topo, std::map<std::string, t_compdata> costmap);

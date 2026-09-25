@@ -61,4 +61,44 @@ class Node
 		{
 			data.push_back((t_data){tstamp, dCpu, dLpm, dRx, dTx});
 		}
+		double getEnergyJoules(double cpu_mw, double lpm_mw, double tx_mw, double rx_mw, double rtimer_freq) const
+        {
+            long long total_cpu = 0, total_lpm = 0, total_rx = 0, total_tx = 0;
+
+            for (const auto& d : data)
+            {
+                total_cpu += d.delta_cpu;
+                total_lpm += d.delta_lpm;
+                total_rx  += d.delta_rx;
+                total_tx  += d.delta_tx;
+            }
+
+            double e_cpu = (cpu_mw / 1000.0) * (static_cast<double>(total_cpu) / rtimer_freq);
+            double e_lpm = (lpm_mw / 1000.0) * (static_cast<double>(total_lpm) / rtimer_freq);
+            double e_rx  = (rx_mw  / 1000.0) * (static_cast<double>(total_rx)  / rtimer_freq);
+            double e_tx  = (tx_mw  / 1000.0) * (static_cast<double>(total_tx)  / rtimer_freq);
+
+            return (e_cpu + e_lpm + e_rx + e_tx);
+        }
+        double getEnergyWh(double cpu_mw, double lpm_mw, double tx_mw, double rx_mw, double rtimer_freq) const
+        {
+            return getEnergyJoules(cpu_mw, lpm_mw, tx_mw, rx_mw, rtimer_freq) / 3600.0;
+        }
+
+        double getDailyConsomationWh(double simlen_ms, double cpu_mw, double lpm_mw, double tx_mw, double rx_mw, double rtimer_freq) const
+        {
+            if (simlen_ms <= 0.0) return 0.0;
+
+            double sim_days = simlen_ms / (86400.0 * 1000.0); // ms -> jours
+            return getEnergyWh(cpu_mw, lpm_mw, tx_mw, rx_mw, rtimer_freq) / sim_days;
+        }
+
+        double getEstimatedLifetimeDays(double battery_wh, double simlen_ms, double cpu_mw, double lpm_mw, double tx_mw, double rx_mw, double rtimer_freq) const
+        {
+            double daily_wh = getDailyConsomationWh(simlen_ms, cpu_mw, lpm_mw, tx_mw, rx_mw, rtimer_freq);
+            if (daily_wh <= 0.0) 
+				return 365.0;
+
+            return (battery_wh / daily_wh);
+        }
 };
